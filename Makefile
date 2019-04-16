@@ -8,7 +8,7 @@ GIT_HOOKS := .git/hooks/applied
 obj-m := fastecho.o
 fastecho-objs := $(SRCS:.c=.o)
 
-all:
+all: $(GIT_HOOKS)
 	make -C $(KERNEL_DIR) SUBDIRS=$(BUILD_DIR) KBUILD_VERBOSE=$(VERBOSE) modules
 
 $(GIT_HOOKS):
