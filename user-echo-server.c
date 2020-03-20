@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -163,20 +164,25 @@ int main(void)
             /* EPOLLIN event for listener (new client connection) */
             if (events[i].data.fd == listener) {
                 int client;
-                if ((client = accept(listener, (struct sockaddr *) &client_addr,
-                                     &socklen)) < 0)
+                while (
+                    (client = accept(listener, (struct sockaddr *) &client_addr,
+                                     &socklen)) > 0) {
+                    printf("Connection from %s:%d, socket assigned: %d\n",
+                           inet_ntoa(client_addr.sin_addr),
+                           ntohs(client_addr.sin_port), client);
+                    setnonblock(client);
+                    ev.data.fd = client;
+                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client, &ev) < 0)
+                        server_err("Fail to control epoll", &list);
+                    push_back_client(&list, client,
+                                     inet_ntoa(client_addr.sin_addr));
+                    printf(
+                        "Add new client (fd=%d) and size of client_list is "
+                        "%d\n",
+                        client, size_list(list));
+                }
+                if (errno != EWOULDBLOCK)
                     server_err("Fail to accept", &list);
-                printf("Connection from %s:%d, socket assigned: %d\n",
-                       inet_ntoa(client_addr.sin_addr),
-                       ntohs(client_addr.sin_port), client);
-                setnonblock(client);
-                ev.data.fd = client;
-                if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client, &ev) < 0)
-                    server_err("Fail to control epoll", &list);
-                push_back_client(&list, client,
-                                 inet_ntoa(client_addr.sin_addr));
-                printf("Add new client (fd=%d) and size of client_list is %d\n",
-                       client, size_list(list));
             } else {
                 /* EPOLLIN event for others (new incoming message from client)
                  */
