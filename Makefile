@@ -9,16 +9,24 @@ GIT_HOOKS := .git/hooks/applied
 obj-m := fastecho.o
 fastecho-objs := $(SRCS:.c=.o)
 
-all: $(GIT_HOOKS) user-echo-server
-	make -C $(KERNEL_DIR) SUBDIRS=$(BUILD_DIR) KBUILD_VERBOSE=$(VERBOSE) modules
-
+all: $(GIT_HOOKS) fastecho.ko bench user-echo-server
+	
 $(GIT_HOOKS):
 	@scripts/install-git-hooks
 	@echo
 
+fastecho.ko:
+	make -C $(KERNEL_DIR) M=$(BUILD_DIR) KBUILD_VERBOSE=$(VERBOSE) modules
+
+bench: bench.c
+	$(CC) -o $@ $(CFLAGS_user) -pthread $<
+
+plot:
+	gnuplot scripts/bench.gp
+
 user-echo-server: user-echo-server.c
-	$(CC) -o $@ $(CFLAGS) $<
+	$(CC) -o $@ $(CFLAGS_user) $<
 
 clean:
-	rm -f *.o *.ko *.mod.c *.symvers *.order .fastecho* user-echo-server
+	rm -f *.o *.ko *.mod.c *.symvers *.order .fastecho* user-echo-server bench
 	rm -fr .tmp_versions
