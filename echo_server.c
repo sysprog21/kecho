@@ -2,10 +2,14 @@
 #include <linux/kthread.h>
 #include <linux/sched/signal.h>
 #include <linux/tcp.h>
+#include <linux/types.h>
 
 #include "echo_server.h"
 
 #define BUF_SIZE 4096
+
+struct echo_service daemon = {.is_stopped = false};
+extern struct workqueue_struct *fastecho_wq;
 
 static int get_request(struct socket *sock, unsigned char *buf, size_t size)
 {
@@ -24,6 +28,10 @@ static int get_request(struct socket *sock, unsigned char *buf, size_t size)
     msg.msg_controllen = 0;
     msg.msg_flags = 0;
 
+    /*
+     * TODO: during benchmarking, such printk() is useless and lead to worse
+     * result. Add a specific build flag for these printk() would be good.
+     */
     printk(MODULE_NAME ": start get response\n");
     /* get msg */
     length = kernel_recvmsg(sock, &msg, &vec, size, size, msg.msg_flags);
@@ -49,31 +57,28 @@ static int send_request(struct socket *sock, unsigned char *buf, size_t size)
 
     printk(MODULE_NAME ": start send request.\n");
 
-    length = kernel_sendmsg(sock, &msg, &vec, 1, strlen(buf) - 1);
+    length = kernel_sendmsg(sock, &msg, &vec, 1, size);
 
     printk(MODULE_NAME ": send request = %s\n", buf);
 
     return length;
 }
 
-static int echo_server_worker(void *arg)
+static void echo_server_worker(struct work_struct *work)
 {
-    struct socket *sock;
+    struct fastecho *worker =
+        container_of(work, struct fastecho, fastecho_work);
     unsigned char *buf;
     int res;
 
-    sock = (struct socket *) arg;
-    allow_signal(SIGKILL);
-    allow_signal(SIGTERM);
-
-    buf = kmalloc(BUF_SIZE, GFP_KERNEL);
+    buf = kzalloc(BUF_SIZE, GFP_KERNEL);
     if (!buf) {
         printk(KERN_ERR MODULE_NAME ": kmalloc error....\n");
-        return -1;
+        return;
     }
 
-    while (!kthread_should_stop()) {
-        res = get_request(sock, buf, BUF_SIZE - 1);
+    while (!daemon.is_stopped) {
+        res = get_request(worker->sock, buf, BUF_SIZE - 1);
         if (res <= 0) {
             if (res) {
                 printk(KERN_ERR MODULE_NAME ": get request error = %d\n", res);
@@ -81,32 +86,60 @@ static int echo_server_worker(void *arg)
             break;
         }
 
-        res = send_request(sock, buf, strlen(buf));
+        res = send_request(worker->sock, buf, res);
         if (res < 0) {
             printk(KERN_ERR MODULE_NAME ": send request error = %d\n", res);
             break;
         }
+
+        memset(buf, 0, res);
     }
 
-    res = get_request(sock, buf, BUF_SIZE - 1);
-    res = send_request(sock, buf, strlen(buf));
-
-    kernel_sock_shutdown(sock, SHUT_RDWR);
-    sock_release(sock);
+    kernel_sock_shutdown(worker->sock, SHUT_RDWR);
     kfree(buf);
+}
 
-    return 0;
+static struct work_struct *create_work(struct socket *sk)
+{
+    struct fastecho *work;
+
+    if (!(work = kmalloc(sizeof(struct fastecho), GFP_KERNEL)))
+        return NULL;
+
+    work->sock = sk;
+
+    INIT_WORK(&work->fastecho_work, echo_server_worker);
+
+    list_add(&work->list, &daemon.worker);
+
+    return &work->fastecho_work;
+}
+
+/* it would be better if we do this dynamically */
+static void free_work(void)
+{
+    struct fastecho *l, *tar;
+    /* cppcheck-suppress uninitvar */
+
+    list_for_each_entry_safe (tar, l, &daemon.worker, list) {
+        kernel_sock_shutdown(tar->sock, SHUT_RDWR);
+        flush_work(&tar->fastecho_work);
+        sock_release(tar->sock);
+        kfree(tar);
+    }
 }
 
 int echo_server_daemon(void *arg)
 {
     struct echo_server_param *param = arg;
     struct socket *sock;
-    struct task_struct *thread;
+    struct work_struct *work;
     int error;
 
     allow_signal(SIGKILL);
     allow_signal(SIGTERM);
+
+    INIT_LIST_HEAD(&daemon.worker);
 
     while (!kthread_should_stop()) {
         /* using blocking I/O */
@@ -118,14 +151,22 @@ int echo_server_daemon(void *arg)
             continue;
         }
 
-        /* start server worker */
-        thread = kthread_run(echo_server_worker, sock, MODULE_NAME);
-        if (IS_ERR(thread)) {
-            printk(KERN_ERR MODULE_NAME ": create worker thread error = %d\n",
-                   error);
+        if (unlikely(!(work = create_work(sock)))) {
+            printk(KERN_ERR MODULE_NAME
+                   ": create work error, connection closed\n");
+            kernel_sock_shutdown(sock, SHUT_RDWR);
+            sock_release(sock);
             continue;
         }
+
+        /* start server worker */
+        queue_work(fastecho_wq, work);
     }
+
+    printk(MODULE_NAME ": daemon shutdown in progress...\n");
+
+    daemon.is_stopped = true;
+    free_work();
 
     return 0;
 }

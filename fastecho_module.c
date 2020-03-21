@@ -3,7 +3,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
-#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/signal.h>
@@ -23,8 +22,10 @@ MODULE_VERSION("0.1");
 
 static ushort port = DEFAULT_PORT;
 static ushort backlog = DEFAULT_BACKLOG;
+static bool bench = false;
 module_param(port, ushort, S_IRUGO);
 module_param(backlog, ushort, S_IRUGO);
+module_param(bench, bool, S_IRUGO);
 
 struct echo_server_param param;
 struct socket *listen_sock;
@@ -32,6 +33,8 @@ struct task_struct *echo_server;
 
 static int open_listen(struct socket **);
 static void close_listen(struct socket *);
+
+struct workqueue_struct *fastecho_wq;
 
 static int fastecho_init_module(void)
 {
@@ -43,6 +46,24 @@ static int fastecho_init_module(void)
 
     param.listen_sock = listen_sock;
 
+    /*
+     * Create a dedicated workqueue instead of using system_wq
+     * since the task could be a CPU-intensive work item
+     * if its lifetime of connection is too long, e.g., using
+     * `telnet` to communicate with fastecho. Flag WQ_UNBOUND
+     * fits this scenario. Note that the trade-off of this
+     * flag is cache locality.
+     * 
+     * You can specify module parameter "bench=1" if you won't
+     * use telnet-like program to interact with the module.
+     * This earns you better cache locality than using default
+     * flag, `WQ_UNBOUND`. Note that your machine may going
+     * unstable if you use telnet-like program along with
+     * module parameter "bench=1" to interact with the module.
+     * Since without `WQ_UNBOUND` flag specified, a
+     * long-running task may delay other tasks in the kernel.
+     */
+    fastecho_wq = alloc_workqueue(MODULE_NAME, bench ? 0 : WQ_UNBOUND, 0);
     echo_server = kthread_run(echo_server_daemon, &param, MODULE_NAME);
     if (IS_ERR(echo_server)) {
         printk(KERN_ERR MODULE_NAME ": cannot start server daemon\n");
@@ -57,6 +78,8 @@ static void fastecho_cleanup_module(void)
     send_sig(SIGTERM, echo_server, 1);
     kthread_stop(echo_server);
     close_listen(listen_sock);
+    destroy_workqueue(fastecho_wq);
+    printk(MODULE_NAME ": module successfully removed \n");
 }
 
 static int open_listen(struct socket **result)
@@ -81,6 +104,17 @@ static int open_listen(struct socket **result)
     if (error < 0) {
         printk(KERN_ERR MODULE_NAME
                ": setsockopt tcp_nodelay setting error = %d\n",
+               error);
+        sock_release(sock);
+        return error;
+    }
+
+    error = kernel_setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (char *) &opt,
+                              sizeof(opt));
+                              
+    if (error < 0) {
+        printk(KERN_ERR MODULE_NAME
+               ": setsockopt SO_REUSEPORT setting error = %d\n",
                error);
         sock_release(sock);
         return error;

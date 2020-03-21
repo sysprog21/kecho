@@ -15,9 +15,12 @@ On module insertion, you can pass following parameters to the module:
     Port you want the module to listen. If the default port is in use, or you simply want to use another port, you can use this param to specify.
   - backlog (`128` by default)
 
-    Backlog amount you want the module to use. Typically, you only need to change this if you encounter too much concurrent connections warning, which will be logged in the kernel message like this, `Possible SYN flooding on port 12345`. For details about SYN flooding, you can refer to the [SYN flood wiki](https://en.wikipedia.org/wiki/SYN_flood). Changing this param allows the kernel to handle more/less connections concurrently.
+    Backlog amount you want the module to use. Typically, you only need to change this if you encounter warning of too much concurrent connections, which will be logged in the kernel message like this, `Possible SYN flooding on port 12345`.  For details about SYN flooding, you can refer to the [SYN flood wiki](https://en.wikipedia.org/wiki/SYN_flood). Changing this param allows the kernel to handle more/less connections concurrently.
+  - bench (`0` by default)
+  
+    By setting this param to `1`, you gain better cache locality during benchmarking the module. More specifically, we use [`WQ_UNBOUND`](https://www.kernel.org/doc/html/latest/core-api/workqueue.html#flags) as workqueue (hereafter called "wq") creation flag for the module by default, because this flag allows you to establish both long term (use telnet-like program to interact with the module) and short term (benchmarking) connection to the module. However, this flag has a trade-off, which is cache locality. The origin of this trade-off is that tasks submitted to a unbounded wq are executed by arbitrary CPU core. Therefore, you can set the param to `1` to disable `WQ_UNBOUND` flag. By disabling this flag, tasks submitted to the CMWQ are actually submitted to a wq named system wq, which is a wq shared by the whole system. Tasks in the system wq are executed by the CPU core who submitted the task at most of the time. **BE AWARE** that if you use telnet-like program to interact with the module with the param set to `1`, your machine may get unstable since your connection may stalls other tasks in the system wq. For details about the CMWQ, you can refer to the [documentation](https://www.kernel.org/doc/html/latest/core-api/workqueue.html).
 ```
-$ sudo insmod fastecho.ko port=<port_you_want> backlog=<amount_you_want>
+$ sudo insmod fastecho.ko port=<port_you_want> backlog=<amount_you_want> bench=<either_1_or_0>
 ```
 
 After the module is loaded, you can use `telnet` to interact with the module:
