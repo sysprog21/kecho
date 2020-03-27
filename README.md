@@ -58,3 +58,8 @@ To visualize the benchmarking result with [gnuplot](http://www.gnuplot.info/), r
 ```
 $ make plot
 ```
+
+## License
+
+`kecho` is released under the MIT License. Use of this source code is governed by
+a MIT License that can be found in the LICENSE file.
