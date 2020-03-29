@@ -1,9 +1,9 @@
 # kecho
 
 This is a lightweight echo server implemented in the Linux kernel mode.
-There is alread a device driver named "echo" in directory "drivers/misc/echo"
-of Linux kernel tree. Thus, we specify "kecho" as the registered kernel
-module name.
+Since a device driver named "echo" exists in directory "drivers/misc/echo"
+of Linux kernel tree, we specify `kecho` as the registered kernel module
+name.
 
 ## Usage
 
