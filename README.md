@@ -1,6 +1,9 @@
 # kecho
 
 This is a lightweight echo server implementation in Linux kernel mode.
+There is alread a device driver named "echo" in directory "drivers/misc/echo"
+of Linux kernel tree. Thus, we specify "kecho" as the registered kernel
+module name.
 
 ## Usage
 
@@ -19,8 +22,8 @@ On module insertion, you can pass following parameters to the module:
   - bench (`0` by default)
   
     By setting this param to `1`, you gain better cache locality during benchmarking the module. More specifically, we use [`WQ_UNBOUND`](https://www.kernel.org/doc/html/latest/core-api/workqueue.html#flags) as workqueue (hereafter called "wq") creation flag for the module by default, because this flag allows you to establish both long term (use telnet-like program to interact with the module) and short term (benchmarking) connection to the module. However, this flag has a trade-off, which is cache locality. The origin of this trade-off is that tasks submitted to a unbounded wq are executed by arbitrary CPU core. Therefore, you can set the param to `1` to disable `WQ_UNBOUND` flag. By disabling this flag, tasks submitted to the CMWQ are actually submitted to a wq named system wq, which is a wq shared by the whole system. Tasks in the system wq are executed by the CPU core who submitted the task at most of the time. **BE AWARE** that if you use telnet-like program to interact with the module with the param set to `1`, your machine may get unstable since your connection may stalls other tasks in the system wq. For details about the CMWQ, you can refer to the [documentation](https://www.kernel.org/doc/html/latest/core-api/workqueue.html).
-```
-$ sudo insmod fastecho.ko port=<port_you_want> backlog=<amount_you_want> bench=<either_1_or_0>
+```shell
+$ sudo insmod kecho.ko port=<port_you_want> backlog=<amount_you_want> bench=<either_1_or_0>
 ```
 
 After the module is loaded, you can use `telnet` to interact with the module:
@@ -33,7 +36,7 @@ Also, you can start benchmarking either `kecho` or `user-echo-server` by running
 $ ./bench
 ```
  
-Note that too much concurrent connections would be treated as sort of DDoS attack, this is caused by the kernel attributes and application specified TCP backlog (kernel: `tcp_max_syn_backlog` and `somaxconn`. Application (`fastecho`/`user-echo-server`): `backlog`). Nevertheless, maximum number of fd per-process is `1024` by default. These limitations can cause performance degration of the module, if you want to perform the benchmarking without such degration, try following modifications:
+Note that too much concurrent connections would be treated as sort of DDoS attack, this is caused by the kernel attributes and application specified TCP backlog (kernel: `tcp_max_syn_backlog` and `somaxconn`. Application (`kecho`/`user-echo-server`): `backlog`). Nevertheless, maximum number of fd per-process is `1024` by default. These limitations can cause performance degration of the module, if you want to perform the benchmarking without such degration, try following modifications:
 
 - Use following commands to adjust kernel attributes:
     ```

@@ -22,7 +22,7 @@
 /*
  * Too much concurrent connection would be treated as sort of DDoS attack
  * (mainly caused by configs (kernel: "tcp_max_syn_backlog" and
- * "somaxconn". Application (fastecho): "backlog"). Nevertheless, default
+ * "somaxconn". Application (kecho): "backlog"). Nevertheless, default
  * maximum number of fd per-process is 1024. If you insist to proceed
  * the benchmarking with "MAX_THREAD" larger than these limitation,
  * perform following modifications:

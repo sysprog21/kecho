@@ -34,9 +34,9 @@ struct task_struct *echo_server;
 static int open_listen(struct socket **);
 static void close_listen(struct socket *);
 
-struct workqueue_struct *fastecho_wq;
+struct workqueue_struct *kecho_wq;
 
-static int fastecho_init_module(void)
+static int kecho_init_module(void)
 {
     int error = open_listen(&listen_sock);
     if (error < 0) {
@@ -50,10 +50,10 @@ static int fastecho_init_module(void)
      * Create a dedicated workqueue instead of using system_wq
      * since the task could be a CPU-intensive work item
      * if its lifetime of connection is too long, e.g., using
-     * `telnet` to communicate with fastecho. Flag WQ_UNBOUND
+     * `telnet` to communicate with kecho. Flag WQ_UNBOUND
      * fits this scenario. Note that the trade-off of this
      * flag is cache locality.
-     * 
+     *
      * You can specify module parameter "bench=1" if you won't
      * use telnet-like program to interact with the module.
      * This earns you better cache locality than using default
@@ -63,7 +63,7 @@ static int fastecho_init_module(void)
      * Since without `WQ_UNBOUND` flag specified, a
      * long-running task may delay other tasks in the kernel.
      */
-    fastecho_wq = alloc_workqueue(MODULE_NAME, bench ? 0 : WQ_UNBOUND, 0);
+    kecho_wq = alloc_workqueue(MODULE_NAME, bench ? 0 : WQ_UNBOUND, 0);
     echo_server = kthread_run(echo_server_daemon, &param, MODULE_NAME);
     if (IS_ERR(echo_server)) {
         printk(KERN_ERR MODULE_NAME ": cannot start server daemon\n");
@@ -73,12 +73,12 @@ static int fastecho_init_module(void)
     return 0;
 }
 
-static void fastecho_cleanup_module(void)
+static void kecho_cleanup_module(void)
 {
     send_sig(SIGTERM, echo_server, 1);
     kthread_stop(echo_server);
     close_listen(listen_sock);
-    destroy_workqueue(fastecho_wq);
+    destroy_workqueue(kecho_wq);
     printk(MODULE_NAME ": module successfully removed \n");
 }
 
@@ -111,7 +111,7 @@ static int open_listen(struct socket **result)
 
     error = kernel_setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (char *) &opt,
                               sizeof(opt));
-                              
+
     if (error < 0) {
         printk(KERN_ERR MODULE_NAME
                ": setsockopt SO_REUSEPORT setting error = %d\n",
@@ -155,5 +155,5 @@ static void close_listen(struct socket *sock)
     sock_release(sock);
 }
 
-module_init(fastecho_init_module);
-module_exit(fastecho_cleanup_module);
+module_init(kecho_init_module);
+module_exit(kecho_cleanup_module);

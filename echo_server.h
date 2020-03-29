@@ -5,7 +5,7 @@
 #include <linux/workqueue.h>
 #include <net/sock.h>
 
-#define MODULE_NAME "fastecho"
+#define MODULE_NAME "kecho"
 
 struct echo_server_param {
     struct socket *listen_sock;
@@ -16,10 +16,10 @@ struct echo_service {
     struct list_head worker;
 };
 
-struct fastecho {
+struct kecho {
     struct socket *sock;
     struct list_head list;
-    struct work_struct fastecho_work;
+    struct work_struct kecho_work;
 };
 
 extern int echo_server_daemon(void *);

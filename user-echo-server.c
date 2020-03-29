@@ -142,15 +142,15 @@ int main(void)
     /*
      * the backlog, which is "128" here, is also the default attribute of
      * "/proc/sys/net/core/somaxconn" before Linux 5.4.
-     * 
+     *
      * specifying the backlog greater than "somaxconn" will be truncated
      * to the maximum attribute of "somaxconn" silently. But you can also
      * adjust "somaxconn" by using command:
-     * 
+     *
      * $ sudo sysctl net.core.somaxconn=<value>
-     * 
+     *
      * For details, please refer to:
-     * 
+     *
      * http://man7.org/linux/man-pages/man2/listen.2.html
      */
     if (listen(listener, 128) < 0)

@@ -9,7 +9,7 @@
 #define BUF_SIZE 4096
 
 struct echo_service daemon = {.is_stopped = false};
-extern struct workqueue_struct *fastecho_wq;
+extern struct workqueue_struct *kecho_wq;
 
 static int get_request(struct socket *sock, unsigned char *buf, size_t size)
 {
@@ -66,8 +66,7 @@ static int send_request(struct socket *sock, unsigned char *buf, size_t size)
 
 static void echo_server_worker(struct work_struct *work)
 {
-    struct fastecho *worker =
-        container_of(work, struct fastecho, fastecho_work);
+    struct kecho *worker = container_of(work, struct kecho, kecho_work);
     unsigned char *buf;
     int res;
 
@@ -101,29 +100,29 @@ static void echo_server_worker(struct work_struct *work)
 
 static struct work_struct *create_work(struct socket *sk)
 {
-    struct fastecho *work;
+    struct kecho *work;
 
-    if (!(work = kmalloc(sizeof(struct fastecho), GFP_KERNEL)))
+    if (!(work = kmalloc(sizeof(struct kecho), GFP_KERNEL)))
         return NULL;
 
     work->sock = sk;
 
-    INIT_WORK(&work->fastecho_work, echo_server_worker);
+    INIT_WORK(&work->kecho_work, echo_server_worker);
 
     list_add(&work->list, &daemon.worker);
 
-    return &work->fastecho_work;
+    return &work->kecho_work;
 }
 
 /* it would be better if we do this dynamically */
 static void free_work(void)
 {
-    struct fastecho *l, *tar;
+    struct kecho *l, *tar;
     /* cppcheck-suppress uninitvar */
 
     list_for_each_entry_safe (tar, l, &daemon.worker, list) {
         kernel_sock_shutdown(tar->sock, SHUT_RDWR);
-        flush_work(&tar->fastecho_work);
+        flush_work(&tar->kecho_work);
         sock_release(tar->sock);
         kfree(tar);
     }
@@ -160,7 +159,7 @@ int echo_server_daemon(void *arg)
         }
 
         /* start server worker */
-        queue_work(fastecho_wq, work);
+        queue_work(kecho_wq, work);
     }
 
     printk(MODULE_NAME ": daemon shutdown in progress...\n");
