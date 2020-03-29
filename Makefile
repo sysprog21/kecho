@@ -18,6 +18,9 @@ $(GIT_HOOKS):
 kecho.ko:
 	make -C $(KERNEL_DIR) M=$(BUILD_DIR) KBUILD_VERBOSE=$(VERBOSE) modules
 
+check: all
+	@scripts/test.sh
+
 bench: bench.c
 	$(CC) -o $@ $(CFLAGS_user) -pthread $<
 

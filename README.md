@@ -1,6 +1,6 @@
 # kecho
 
-This is a lightweight echo server implementation in Linux kernel mode.
+This is a lightweight echo server implemented in the Linux kernel mode.
 There is alread a device driver named "echo" in directory "drivers/misc/echo"
 of Linux kernel tree. Thus, we specify "kecho" as the registered kernel
 module name.
@@ -26,29 +26,32 @@ On module insertion, you can pass following parameters to the module:
 $ sudo insmod kecho.ko port=<port_you_want> backlog=<amount_you_want> bench=<either_1_or_0>
 ```
 
-After the module is loaded, you can use `telnet` to interact with the module:
-```
+After the module is loaded, you can use `telnet` command to interact with this module:
+```shell
 $ telnet 127.0.0.1 12345
 ```
 
-Also, you can start benchmarking either `kecho` or `user-echo-server` by running the command at below. The benchmarking tool evaluates response time of the echo servers at given amount of concurrent connections. It starts by creating number of threads (which is specified via `MAX_THREAD` in `bench.c`) requested, once all threads are created, it starts the benchmarking by waking up all threads with `pthread_cond_broadcast()`, each thread then creates their own socket and sends message to the server, afterward, they wait for echo message sent by the server and then record time elapsed by sending and receiving the message.
+Alternatively, you can execute the builtin test suite:
+```shell
+$ make check
 ```
+
+Also, you can start benchmarking either `kecho` or `user-echo-server` by running the command at below. The benchmarking tool evaluates response time of the echo servers at given amount of concurrent connections. It starts by creating number of threads (which is specified via `MAX_THREAD` in `bench.c`) requested, once all threads are created, it starts the benchmarking by waking up all threads with `pthread_cond_broadcast()`, each thread then creates their own socket and sends message to the server, afterward, they wait for echo message sent by the server and then record time elapsed by sending and receiving the message.
+```shell
 $ ./bench
 ```
  
 Note that too much concurrent connections would be treated as sort of DDoS attack, this is caused by the kernel attributes and application specified TCP backlog (kernel: `tcp_max_syn_backlog` and `somaxconn`. Application (`kecho`/`user-echo-server`): `backlog`). Nevertheless, maximum number of fd per-process is `1024` by default. These limitations can cause performance degration of the module, if you want to perform the benchmarking without such degration, try following modifications:
 
 - Use following commands to adjust kernel attributes:
-    ```
+    ```shell
     $ sudo sysctl net.core.somaxconn=<depends_on_MAX_THREAD>
-    ```
-    ```
     $ sudo sysctl net.ipv4.tcp_max_syn_backlog=<ditto>
     ```
     Note that `$ sysctl net.core.somaxconn` can get current value. `somaxconn` is max amount of established connection, whereas `tcp_max_syn_backlog` is max amount of connection at first step of TCP 3-way handshake (SYN).
 
 - Use following command to enlarge limitation of fd per-process:
-  ```
+  ```shell
   $ ulimit -n <ditto>
   ```
   Note that this modification only effects on process which executes the command and its child processes
@@ -58,7 +61,7 @@ Note that too much concurrent connections would be treated as sort of DDoS attac
 Remember to reset the modifications after benchmarking to keep stability of your machine.
 
 To visualize the benchmarking result with [gnuplot](http://www.gnuplot.info/), run following command to generate the image, and view the result with your image viewer.
-```
+```shell
 $ make plot
 ```
 
