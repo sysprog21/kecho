@@ -1,22 +1,21 @@
-SRCS = kecho_mod.c echo_server.c
-KERNEL_DIR = /lib/modules/$(shell uname -r)/build
-BUILD_DIR := $(shell pwd)
+KDIR = /lib/modules/$(shell uname -r)/build
 
 CFLAGS_user = -std=gnu99 -Wall -Wextra -Werror
 
+obj-m += kecho.o
+kecho-objs := \
+    kecho_mod.o \
+    echo_server.o
+
+obj-m += drop-tcp-socket.o
+
 GIT_HOOKS := .git/hooks/applied
+all: $(GIT_HOOKS) bench user-echo-server
+	make -C $(KDIR) M=$(PWD) KBUILD_VERBOSE=$(VERBOSE) modules
 
-obj-m := kecho.o
-kecho-objs := $(SRCS:.c=.o)
-
-all: $(GIT_HOOKS) kecho.ko bench user-echo-server
-	
 $(GIT_HOOKS):
 	@scripts/install-git-hooks
 	@echo
-
-kecho.ko:
-	make -C $(KERNEL_DIR) M=$(BUILD_DIR) KBUILD_VERBOSE=$(VERBOSE) modules
 
 check: all
 	@scripts/test.sh

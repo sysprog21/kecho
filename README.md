@@ -7,12 +7,13 @@ name.
 
 ## Usage
 
-Run make to build the module and the generic benchmarking tool:
-```
+Run `make` to build the kernel module along with userspace implementation
+and  generic benchmarking tool:
+```shell
 $ make
 ```
 
-On module insertion, you can pass following parameters to the module:
+On module loading, you can pass the following parameters to the module:
   - port (`12345` by default)
 
     Port you want the module to listen. If the default port is in use, or you simply want to use another port, you can use this param to specify.
@@ -26,7 +27,7 @@ On module insertion, you can pass following parameters to the module:
 $ sudo insmod kecho.ko port=<port_you_want> backlog=<amount_you_want> bench=<either_1_or_0>
 ```
 
-After the module is loaded, you can use `telnet` command to interact with this module:
+After the module is loaded, you can use `telnet` command to interact with it:
 ```shell
 $ telnet 127.0.0.1 12345
 ```
@@ -41,16 +42,16 @@ Also, you can start benchmarking either `kecho` or `user-echo-server` by running
 $ ./bench
 ```
  
-Note that too much concurrent connections would be treated as sort of DDoS attack, this is caused by the kernel attributes and application specified TCP backlog (kernel: `tcp_max_syn_backlog` and `somaxconn`. Application (`kecho`/`user-echo-server`): `backlog`). Nevertheless, maximum number of fd per-process is `1024` by default. These limitations can cause performance degration of the module, if you want to perform the benchmarking without such degration, try following modifications:
+Note that too much concurrent connections would be treated as sort of DDoS attack, this is caused by the kernel attributes and application specified TCP backlog (kernel: `tcp_max_syn_backlog` and `somaxconn`. Application (`kecho`/`user-echo-server`): `backlog`). Nevertheless, maximum number of fd per-process is `1024` by default. These limitations can cause performance degration of the module, if you want to perform the benchmarking without such degration, try the following configurations:
 
-- Use following commands to adjust kernel attributes:
+- Use the following commands to adjust kernel attributes:
     ```shell
     $ sudo sysctl net.core.somaxconn=<depends_on_MAX_THREAD>
     $ sudo sysctl net.ipv4.tcp_max_syn_backlog=<ditto>
     ```
     Note that `$ sysctl net.core.somaxconn` can get current value. `somaxconn` is max amount of established connection, whereas `tcp_max_syn_backlog` is max amount of connection at first step of TCP 3-way handshake (SYN).
 
-- Use following command to enlarge limitation of fd per-process:
+- Use the following command to enlarge limitation of fd per-process:
   ```shell
   $ ulimit -n <ditto>
   ```
@@ -60,10 +61,34 @@ Note that too much concurrent connections would be treated as sort of DDoS attac
 
 Remember to reset the modifications after benchmarking to keep stability of your machine.
 
-To visualize the benchmarking result with [gnuplot](http://www.gnuplot.info/), run following command to generate the image, and view the result with your image viewer.
+To visualize the benchmark results with [gnuplot](http://www.gnuplot.info/), run the following command to generate the image, and view the result with your image viewer.
 ```shell
 $ make plot
 ```
+
+## drop-tcp-socket
+
+In case of being unable to release TCP connections, there is another Linux kernel module,
+`drop-tcp-socket`, which allows one to drop specific TCP connections. It is extremely
+useful for dropping `TIME-WAIT` sockets.
+
+Load `drop-tcp-socket` kernel module:
+```shell
+$ sudo insmod drop-tcp-socket.ko
+```
+
+Drop single TCP connection: (Assume port 12345 was listened by kecho)
+```shell
+$ netstat -n | grep WAIT | grep 12345
+tcp        0      0 127.0.0.1:36986         127.0.0.1:12345         TIME_WAIT
+$ echo "127.0.0.1:36986 127.0.0.1:12345" | sudo tee /proc/net/drop_tcp_sock
+```
+
+Drop multiple TCP connections:
+```shell
+$ netstat -n | grep WAIT | grep 12345 | awk '{print $4" "$5}' | sudo tee /proc/net/drop_tcp_sock
+```
+
 
 ## License
 
