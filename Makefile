@@ -30,5 +30,5 @@ user-echo-server: user-echo-server.c
 	$(CC) -o $@ $(CFLAGS_user) $<
 
 clean:
-	rm -f *.o *.ko *.mod.c *.symvers *.order .kecho* user-echo-server bench
+	rm -f *.o *.ko *.mod.c *.symvers *.order .kecho* user-echo-server bench bench.txt
 	rm -fr .tmp_versions
