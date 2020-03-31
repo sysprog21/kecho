@@ -68,7 +68,6 @@ static void echo_server_worker(struct work_struct *work)
 {
     struct kecho *worker = container_of(work, struct kecho, kecho_work);
     unsigned char *buf;
-    int res;
 
     buf = kzalloc(BUF_SIZE, GFP_KERNEL);
     if (!buf) {
@@ -77,7 +76,7 @@ static void echo_server_worker(struct work_struct *work)
     }
 
     while (!daemon.is_stopped) {
-        res = get_request(worker->sock, buf, BUF_SIZE - 1);
+        int res = get_request(worker->sock, buf, BUF_SIZE - 1);
         if (res <= 0) {
             if (res) {
                 printk(KERN_ERR MODULE_NAME ": get request error = %d\n", res);
@@ -133,7 +132,6 @@ int echo_server_daemon(void *arg)
     struct echo_server_param *param = arg;
     struct socket *sock;
     struct work_struct *work;
-    int error;
 
     allow_signal(SIGKILL);
     allow_signal(SIGTERM);
@@ -142,7 +140,7 @@ int echo_server_daemon(void *arg)
 
     while (!kthread_should_stop()) {
         /* using blocking I/O */
-        error = kernel_accept(param->listen_sock, &sock, 0);
+        int error = kernel_accept(param->listen_sock, &sock, 0);
         if (error < 0) {
             if (signal_pending(current))
                 break;

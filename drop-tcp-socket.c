@@ -47,7 +47,7 @@ static void droptcp_drop(struct net *net,
                          const struct droptcp_inet *src,
                          const struct droptcp_inet *dst)
 {
-    struct sock *sk = NULL;
+    struct sock *sk;
 
     if (!src->ipv6) {
         sk = inet_lookup(net, &tcp_hashinfo, NULL, 0, (__be32) dst->addr[0],
