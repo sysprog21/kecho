@@ -125,7 +125,7 @@ static int open_listen(struct socket **result)
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(DEFAULT_PORT);
+    addr.sin_port = htons(port);
 
     /* bind */
     error = kernel_bind(sock, (struct sockaddr *) &addr, sizeof(addr));
@@ -137,7 +137,7 @@ static int open_listen(struct socket **result)
     printk(MODULE_NAME ": socket bind ok....\n");
 
     /* listen */
-    error = kernel_listen(sock, DEFAULT_BACKLOG);
+    error = kernel_listen(sock, backlog);
     if (error < 0) {
         printk(KERN_ERR MODULE_NAME ": socket listen error = %d\n", error);
         sock_release(sock);
