@@ -116,8 +116,8 @@ static struct work_struct *create_work(struct socket *sk)
 /* it would be better if we do this dynamically */
 static void free_work(void)
 {
-    struct kecho *tar;
-    struct kecho *l;
+    struct kecho *l, *tar;
+    /* cppcheck-suppress uninitvar */
 
     list_for_each_entry_safe (tar, l, &daemon.worker, list) {
         kernel_sock_shutdown(tar->sock, SHUT_RDWR);
