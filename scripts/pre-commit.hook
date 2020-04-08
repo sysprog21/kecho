@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CPPCHECK_suppresses="--suppress=missingIncludeSystem \
+CPPCHECK_suppresses="--suppress=missingInclude \
                      --suppress=knownConditionTrueFalse:drop-tcp-socket.c \
                      --inline-suppr"
 CPPCHECK_OPTS="-I. --enable=all --error-exitcode=1 --force $CPPCHECK_suppresses ."
