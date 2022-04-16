@@ -2,6 +2,8 @@
 
 CPPCHECK_suppresses="--suppress=missingInclude \
                      --suppress=knownConditionTrueFalse:drop-tcp-socket.c \
+                     --suppress=unmatchedSuppression:echo_server.c \
+                     --suppress=unreadVariable:kecho_mod.c \
                      --inline-suppr"
 CPPCHECK_OPTS="-I. --enable=all --error-exitcode=1 --force $CPPCHECK_suppresses"
 
