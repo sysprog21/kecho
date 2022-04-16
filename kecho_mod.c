@@ -8,7 +8,12 @@
 #include <linux/signal.h>
 #include <linux/tcp.h>
 #include <linux/types.h>
+#include <linux/version.h>
 #include <net/sock.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+#define USE_SETSOCKET
+#endif
 
 #include "echo_server.h"
 
@@ -88,6 +93,7 @@ static int open_listen(struct socket **result)
     struct sockaddr_in addr;
     int error;
     int opt = 1;
+    sockptr_t kopt = {.kernel = (char *) &opt, .is_kernel = 1};
 
     /* using IPv4, TCP/IP */
     error = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
@@ -97,9 +103,14 @@ static int open_listen(struct socket **result)
     }
     printk(MODULE_NAME ": socket create ok....\n");
 
-    /* set tcp_nodelay */
+/* set tcp_nodelay */
+#ifdef USE_SETSOCKET
+    error =
+        sock->ops->setsockopt(sock, SOL_TCP, TCP_NODELAY, kopt, sizeof(opt));
+#else
     error = kernel_setsockopt(sock, SOL_TCP, TCP_NODELAY, (char *) &opt,
                               sizeof(opt));
+#endif
 
     if (error < 0) {
         printk(KERN_ERR MODULE_NAME
@@ -109,8 +120,12 @@ static int open_listen(struct socket **result)
         return error;
     }
 
+#ifdef USE_SETSOCKET
+    error = sock_setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, kopt, sizeof(opt));
+#else
     error = kernel_setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (char *) &opt,
                               sizeof(opt));
+#endif
 
     if (error < 0) {
         printk(KERN_ERR MODULE_NAME

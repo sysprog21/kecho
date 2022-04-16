@@ -6,6 +6,11 @@
 #include <linux/inet.h>
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+#define HAVE_PROC_OPS
+#endif
 
 #include <net/netns/generic.h>
 #include <net/tcp.h>
@@ -176,12 +181,20 @@ static int droptcp_proc_release(struct inode *inode, struct file *file)
     return 0;
 }
 
+#ifdef HAVE_PROC_OPS
+static const struct proc_ops droptcp_proc_fops = {
+    .proc_open = droptcp_proc_open,
+    .proc_write = droptcp_proc_write,
+    .proc_release = droptcp_proc_release,
+};
+#else
 static const struct file_operations droptcp_proc_fops = {
     .owner = THIS_MODULE,
     .open = droptcp_proc_open,
     .write = droptcp_proc_write,
     .release = droptcp_proc_release,
 };
+#endif
 
 static int droptcp_pernet_id = 0;
 
