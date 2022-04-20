@@ -93,7 +93,9 @@ static int open_listen(struct socket **result)
     struct sockaddr_in addr;
     int error;
     int opt = 1;
+#ifdef USE_SETSOCKET
     sockptr_t kopt = {.kernel = (char *) &opt, .is_kernel = 1};
+#endif
 
     /* using IPv4, TCP/IP */
     error = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
