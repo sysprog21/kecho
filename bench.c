@@ -59,7 +59,7 @@ static const char *msg_dum = "dummy message";
 static pthread_t pt[MAX_THREAD];
 
 /* block all workers before they are all ready to benchmarking kecho */
-static bool ready;
+static int n_retry;
 
 static pthread_mutex_t res_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t worker_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -83,12 +83,18 @@ static void *bench_worker(__attribute__((unused)))
 
     /* wait until all workers created */
     pthread_mutex_lock(&worker_lock);
-    while (!ready)
-        if (pthread_cond_wait(&worker_wait, &worker_lock)) {
-            puts("pthread_cond_wait failed");
-            exit(-1);
+    if (++n_retry == MAX_THREAD) {
+        pthread_cond_broadcast(&worker_wait);
+    } else {
+        while (n_retry < MAX_THREAD) {
+            if (pthread_cond_wait(&worker_wait, &worker_lock)) {
+                puts("pthread_cond_wait failed");
+                exit(-1);
+            }
         }
+    }
     pthread_mutex_unlock(&worker_lock);
+    /* all workers are ready, let's start bombing the server */
 
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_fd == -1) {
@@ -140,20 +146,10 @@ static void create_worker(int thread_qty)
 static void bench(void)
 {
     for (int i = 0; i < BENCH_COUNT; i++) {
-        ready = false;
+        n_retry = 0;
 
         create_worker(MAX_THREAD);
 
-        pthread_mutex_lock(&worker_lock);
-
-        ready = true;
-
-        /* all workers are ready, let's start bombing kecho */
-        pthread_cond_broadcast(&worker_wait);
-
-        pthread_mutex_unlock(&worker_lock);
-
-        /* waiting for all workers to finish the measurement */
         for (int x = 0; x < MAX_THREAD; x++)
             pthread_join(pt[x], NULL);
 
