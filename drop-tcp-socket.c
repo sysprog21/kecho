@@ -12,6 +12,10 @@
 #define HAVE_PROC_OPS
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0)
+#define PDE_DATA pde_data
+#endif
+
 #include <net/netns/generic.h>
 #include <net/tcp.h>
 
