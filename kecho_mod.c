@@ -73,6 +73,7 @@ static int kecho_init_module(void)
     if (IS_ERR(echo_server)) {
         printk(KERN_ERR MODULE_NAME ": cannot start server daemon\n");
         close_listen(listen_sock);
+        return PTR_ERR(echo_server);
     }
 
     return 0;
