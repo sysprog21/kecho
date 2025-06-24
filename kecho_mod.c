@@ -68,7 +68,12 @@ static int kecho_init_module(void)
      * Since without `WQ_UNBOUND` flag specified, a
      * long-running task may delay other tasks in the kernel.
      */
-    kecho_wq = alloc_workqueue(MODULE_NAME, bench ? 0 : WQ_UNBOUND, 0);
+    if (unlikely(!(kecho_wq = alloc_workqueue(MODULE_NAME,
+                                              bench ? 0 : WQ_UNBOUND, 0)))) {
+        printk(KERN_ERR MODULE_NAME ": cannot allocate workqueue\n");
+        close_listen(listen_sock);
+        return -ENOMEM;
+    }
     echo_server = kthread_run(echo_server_daemon, &param, MODULE_NAME);
     if (IS_ERR(echo_server)) {
         printk(KERN_ERR MODULE_NAME ": cannot start server daemon\n");
